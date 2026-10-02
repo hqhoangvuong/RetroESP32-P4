@@ -1,0 +1,2 @@
+# The product default disables AI to reduce its runtime footprint; CI compiles it.
+CONFIG_ESP_BROOKESIA_ENABLE_AI_FRAMEWORK=y

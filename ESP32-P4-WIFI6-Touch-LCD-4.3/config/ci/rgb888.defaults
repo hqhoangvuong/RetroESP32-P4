@@ -1,0 +1,3 @@
+# Exercise the alternate MIPI-DSI/LVGL color path.
+# CONFIG_BSP_LCD_COLOR_FORMAT_RGB565 is not set
+CONFIG_BSP_LCD_COLOR_FORMAT_RGB888=y

@@ -1,0 +1,8 @@
+# Explicit compatibility profile for ESP32-P4 Rev1.3 hardware.
+# Rev1.x uses the legacy MIPI PHY reference clock and 200 MHz PSRAM.
+CONFIG_ESP32P4_REV_MIN_100=y
+# CONFIG_ESP32P4_REV_MIN_300 is not set
+# CONFIG_ESP32P4_REV_MIN_1 is not set
+CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y
+CONFIG_SPIRAM_SPEED_200M=y
+# CONFIG_SPIRAM_SPEED_250M is not set

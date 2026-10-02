@@ -1,0 +1,3 @@
+# Compile the USB display application with both optional data paths disabled.
+CONFIG_HID_TOUCH_ENABLE=n
+CONFIG_UAC_AUDIO_ENABLE=n

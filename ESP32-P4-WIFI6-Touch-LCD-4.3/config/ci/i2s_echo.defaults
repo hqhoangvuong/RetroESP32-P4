@@ -1,0 +1,2 @@
+# Compile the ES7210 microphone path and loop it back to the ES8311 speaker.
+CONFIG_EXAMPLE_MODE_ECHO=y

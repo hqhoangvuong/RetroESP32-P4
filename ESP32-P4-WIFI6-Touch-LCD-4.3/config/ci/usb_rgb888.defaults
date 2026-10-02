@@ -1,0 +1,5 @@
+# Exercise both board and application RGB888 choices in the USB display demo.
+# CONFIG_BSP_LCD_COLOR_FORMAT_RGB565 is not set
+CONFIG_BSP_LCD_COLOR_FORMAT_RGB888=y
+# CONFIG_LCD_PIXEL_FORMAT_RGB565 is not set
+CONFIG_LCD_PIXEL_FORMAT_RGB888=y

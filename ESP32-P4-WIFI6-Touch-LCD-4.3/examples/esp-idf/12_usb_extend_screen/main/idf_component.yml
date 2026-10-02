@@ -1,0 +1,10 @@
+## IDF Component Manager Manifest File
+dependencies:
+  lvgl/lvgl:
+    version: "9.5.0"
+    public: true
+  espressif/usb_device_uac:
+    version: "1.2.0"
+    # Download for the opt-in UAC path; do not require it for minimal builds.
+    require: no
+  espressif/tinyusb: "*"
