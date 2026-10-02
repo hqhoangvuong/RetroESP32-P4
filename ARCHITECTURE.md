@@ -15,7 +15,7 @@
 8. [Emulator Apps](#emulator-apps)
 9. [Neo Geo Cache](#neo-geo-cache)
 10. [NVS Protocol](#nvs-protocol)
-11. [HDMI Target](#hdmi-target)
+11. [Board Targets](#board-targets-lcd--hdmi--waveshare)
 12. [SDK Configuration](#sdk-configuration)
 13. [Build & Flash](#build--flash)
 14. [Adding an Emulator](#adding-an-emulator)
@@ -59,6 +59,7 @@ the `factory` partition switches between emulators (each a separate OTA firmware
 | Internal SRAM | 768 KB |
 | Display (LCD) | 4.3" 480×800 MIPI-DSI, ST7701S |
 | Display (HDMI) | Olimex LT8912 DSI→HDMI bridge @ 640×480 (alternate target) |
+| Alternate LCD board | Waveshare ESP32-P4-WIFI6-Touch-LCD-4.3 (see [Board Targets](#board-targets-lcd--hdmi--waveshare)) |
 | Touch | GT911 (I2C) |
 | Audio | ES8311 codec via I2S |
 | Input | Onboard GPIO pad (pins 28–35) OR'd with USB-HID gamepad (PS3 native) |
@@ -245,14 +246,33 @@ Launcher writes, emulator reads; namespace `"Odroid"`, API in `odroid_settings.h
 
 ---
 
-## HDMI Target
+## Board Targets (LCD / HDMI / Waveshare)
 
-Two board targets, built/flashed separately:
+Board targets, built/flashed separately (each is a compile-time Kconfig choice, not runtime detection):
 
 | Target | Display | Build | Output |
 |--------|---------|-------|--------|
-| LCD | 480×800 ST7701S + GT911 | `build_all.ps1` | `RetroESP32_P4_v1.bin` |
+| LCD (Guition, default) | 480×800 ST7701S + GT911 | `build_all.ps1` | `RetroESP32_P4_v1.bin` |
 | HDMI | LT8912 DSI→HDMI @ 640×480 | `build_all_hdmi.bat` | `RetroESP32_P4_HDMI_v1.bin` |
+| Waveshare ESP32-P4-WIFI6-Touch-LCD-4.3 | 480×800 ST7701 + GT911 | `build_waveshare.ps1 [-Rev1]` | `RetroESP32_P4_Waveshare_v1.bin` |
+
+**Waveshare** (`CONFIG_BOARD_WAVESHARE_P4_43`, overlay `launcher/sdkconfig.waveshare.defaults`; vendor material in
+`ESP32-P4-WIFI6-Touch-LCD-4.3/`). Differences from Guition, all keyed off that symbol:
+
+| Item | Guition | Waveshare |
+|------|---------|-----------|
+| LCD reset / backlight | GPIO5 / GPIO23 active-high | GPIO27 / GPIO26 **active-low** (LEDC `output_invert`) |
+| ST7701 init + DPI | `esp_lcd_st7701_mipi.c` default table, 34 MHz, vsync 2/8/166 | `s_waveshare_init_cmds` in `st7701_lcd.c`, 30 MHz, vsync pulse/BP/FP 8/2/60 |
+| Audio PA / I2S DIN | GPIO11 / GPIO48 | GPIO53 (NS4150B) / GPIO11 |
+| Battery ADC | GPIO53 (ADC2), 68K/100K | GPIO20 (ADC1), 200K/100K — unit/channel resolved via `adc_oneshot_io_to_channel` |
+| GPIO-pad X button | GPIO33 | disabled (GPIO33 = BL_EN, not on header) |
+| GT911 I2C addr | 0x5D | 0x5D, else 0x14 (probed on both boards; INT/RST not driven) |
+| Silicon | image built for Rev <3.0 (max chip rev 1.99) | Rev3.x needs `sdkconfig.p4rev3.defaults` (`REV_MIN_300`) |
+
+SD (SDMMC 43/44/39–42, LDO ch.4), I2S MCLK/BCLK/WS/DOUT, I2C 7/8 and the touch/ST7701 resolution are identical.
+Pin macros live in `components/odroid/include/pins_config.h` (the copies in `components/app_common/include/` and
+`launcher/main/` must be kept byte-identical); LCD-specific constants are in `components/st7701_lcd/st7701_lcd.c`.
+Hardware validation of this target is still pending.
 
 HDMI enables `CONFIG_HDMI_OUTPUT=y`, links `lt8912` + `hdmi_display`, and shares I2C between the touch
 controller and LT8912 (Phase 46.23). A stale `CONFIG_HDMI_OUTPUT=y` in an LCD app's `sdkconfig` →

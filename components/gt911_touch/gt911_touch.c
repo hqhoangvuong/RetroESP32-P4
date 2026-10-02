@@ -12,6 +12,7 @@
 
 #define CONFIG_LCD_HRES 480
 #define CONFIG_LCD_VRES 800
+#define GT911_BACKUP_ADDRESS 0x14
 
 static const char *TAG = "gt911_touch";
 
@@ -26,6 +27,15 @@ esp_err_t gt911_touch_init(int8_t sda_pin, int8_t scl_pin, int8_t rst_pin, int8_
 
     esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG();
     tp_io_config.scl_speed_hz = 100000;
+
+    /* With INT/RST not driven the GT911 powers up on either 0x5D or 0x14
+     * (Waveshare board); use 0x14 only if nothing answers at the default. */
+    if (i2c_master_probe(i2c_handle, tp_io_config.dev_addr, 50) != ESP_OK &&
+        i2c_master_probe(i2c_handle, GT911_BACKUP_ADDRESS, 50) == ESP_OK) {
+        ESP_LOGW(TAG, "GT911 not at 0x%02X, using backup address 0x%02X",
+                 tp_io_config.dev_addr, GT911_BACKUP_ADDRESS);
+        tp_io_config.dev_addr = GT911_BACKUP_ADDRESS;
+    }
     ESP_LOGI(TAG, "Initialize touch IO (I2C)");
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(i2c_handle, &tp_io_config, &s_tp_io_handle));
 

@@ -9,6 +9,18 @@ menu "RetroESP32 Platform"
             When disabled (default), the display outputs to the ST7701
             480x800 MIPI DSI LCD panel.
 
+    config BOARD_WAVESHARE_P4_43
+        bool "Waveshare ESP32-P4-WIFI6-Touch-LCD-4.3 (instead of Guition 4.3-inch LCD)"
+        default n
+        depends on !HDMI_OUTPUT
+        help
+            Select the Waveshare ESP32-P4-WIFI6-Touch-LCD-4.3 pin map and
+            panel configuration for the handheld (LCD) build.  Changes the
+            LCD reset / backlight pins and polarity, ST7701 init sequence and
+            DPI timing, audio PA / I2S pins, battery ADC and the GPIO-pad X
+            button.  When disabled (default) the Guition 4.3-inch board is used.
+            Rev3.x ESP32-P4 silicon additionally needs sdkconfig.p4rev3.defaults.
+
     config LT8912_I2C_SDA
         int "LT8912 I2C SDA GPIO"
         default 7

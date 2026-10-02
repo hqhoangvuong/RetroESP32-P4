@@ -1,0 +1,6 @@
+# Waveshare ESP32-P4-WIFI6-Touch-LCD-4.3 board variant — layer on top of sdkconfig.defaults
+# Usage: idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;<abs>/sdkconfig.waveshare.defaults;<abs>/sdkconfig.p4rev3.defaults" build
+#        (build_waveshare.ps1 does this for the launcher and every emulator app)
+
+# Waveshare pin map, ST7701 init/timing, active-low backlight, battery ADC, etc.
+CONFIG_BOARD_WAVESHARE_P4_43=y

@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-RetroESP32-P4: a multi-emulator + native-app platform for the ESP32-P4 (dual-core RISC-V, 32 MB PSRAM, 16 MB flash), built with **ESP-IDF v5.5.2**. Two board targets from one source tree: **LCD** (Guition 4.3″ 480×800 ST7701S + GT911 touch) and **HDMI** (Olimex LT8912 DSI→HDMI, 640×480). `ARCHITECTURE.md` is the detailed reference (if it disagrees with code, code wins); `PAPP_GUIDE.md` covers writing PSRAM apps. Docs referenced there (`DEVELOPMENT_LOG.md`, `PSRAM_APP.md`, `Neogeo.md`, `HDMIport.md`) are not in this repo.
+RetroESP32-P4: a multi-emulator + native-app platform for the ESP32-P4 (dual-core RISC-V, 32 MB PSRAM, 16 MB flash), built with **ESP-IDF v5.5.2**. Board targets from one source tree: **LCD** (Guition 4.3″ 480×800 ST7701S + GT911 touch), **HDMI** (Olimex LT8912 DSI→HDMI, 640×480) and **Waveshare** (ESP32-P4-WIFI6-Touch-LCD-4.3, same panel class, different pins). `ARCHITECTURE.md` is the detailed reference (if it disagrees with code, code wins); `PAPP_GUIDE.md` covers writing PSRAM apps. Docs referenced there (`DEVELOPMENT_LOG.md`, `PSRAM_APP.md`, `Neogeo.md`, `HDMIport.md`) are not in this repo.
 
-There is no test suite or linter. Verification is building and running on hardware. `ESP32-P4-WIFI6-Touch-LCD-4.3/` is vendor reference material (Arduino examples, docs), not part of the firmware build.
+There is no test suite or linter. Verification is building and running on hardware. `ESP32-P4-WIFI6-Touch-LCD-4.3/` is Waveshare's vendor reference material (examples, schematic) and the source for the Waveshare pin map; it is not part of the firmware build.
 
 ## Build & flash (Windows-centric, PowerShell/batch)
 
@@ -17,6 +17,7 @@ The scripts assume Windows and a local ESP-IDF install; `tools/resolve_idf_env.b
 - Flash everything: `flash_all.ps1` (set `$PORT`); or flash a merged bin at address `0`
 - Single project: `cd apps\snes; idf.py build` (or `cd launcher`). **Delete that project's `sdkconfig` and `build/` first if it was last built for the other target** — a stale `CONFIG_HDMI_OUTPUT=y` gives a black screen and broken audio. The build-all scripts do this automatically.
 - PAPP apps: `tools\build_psram_app.ps1 -AppName X -Sources ...` (per-port scripts: `tools/build_{doom,quake,duke3d,opentyrian,lvgl}_papp.ps1`), upload with `tools/upload_papp.py`. Built `.papp` files must also be committed to `SDcard/roms/papp/` (the git-tracked mirror of the SD card).
+- Waveshare ESP32-P4-WIFI6-Touch-LCD-4.3 build: `build_waveshare.ps1` (add `-Rev1` for Rev1.x silicon) → `firmware_waveshare/` → `RetroESP32_P4_Waveshare_v1.bin`. Board selection is the compile-time Kconfig `CONFIG_BOARD_WAVESHARE_P4_43` (`launcher/sdkconfig.waveshare.defaults`); Rev3.x chips also need `launcher/sdkconfig.p4rev3.defaults` because the default images are limited to chip rev ≤1.99. Pin map: `components/odroid/include/pins_config.h` (keep the identical copies in `components/app_common/include/` and `launcher/main/` in sync); not yet hardware-validated.
 - Neo Geo cache: `python SDcard/roms/neogeo/gen_cache.py <game>` (root `gen_ctile.py` / `gen_vrom.py` are the underlying generators; `verify_ctile.py` checks output).
 
 ## Architecture (big picture)

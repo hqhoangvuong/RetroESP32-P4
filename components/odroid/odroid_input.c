@@ -22,6 +22,7 @@
 
 #include "odroid_input.h"
 #include "gamepad.h"   /* gamepad_is_connected() */
+#include "pins_config.h"  /* BATTERY_ADC_GPIO / divider, board pin map */
 #ifndef CONFIG_HDMI_OUTPUT
 #include "gt911_touch.h"
 #endif
@@ -60,12 +61,13 @@ static int64_t      s_touch_last_us = 0;
 #define PADDLE_ADC_UNIT    ADC_UNIT_2
 #define PADDLE_ADC_CHANNEL ADC_CHANNEL_2   /* GPIO 51 */
 
-/* ─── Battery ADC (GPIO 53 = ADC2_CH4 on ESP32-P4) ──────────────── */
-/*  Voltage divider: 68K (battery side) + 100K (GND side)             */
-/*  Vgpio = Vbat × 100 / 168  →  Vbat = Vgpio × 168 / 100           */
-#define BATTERY_ADC_CHANNEL ADC_CHANNEL_4  /* GPIO 53 */
-#define BATTERY_DIVIDER_NUM 168            /* R_high + R_low */
-#define BATTERY_DIVIDER_DEN 100            /* R_low */
+/* ─── Battery ADC ─────────────────────────────────────────────────── */
+/*  GPIO / divider come from pins_config.h (BATTERY_ADC_GPIO,           */
+/*  BATTERY_DIVIDER_NUM/DEN):                                           */
+/*    Guition  : GPIO 53 (ADC2_CH4), 68K + 100K                         */
+/*    Waveshare: GPIO 20 (ADC1_CH4), 200K + 100K                        */
+/*  Vbat = Vgpio × BATTERY_DIVIDER_NUM / BATTERY_DIVIDER_DEN            */
+/*  Unit/channel are resolved from the GPIO at init time.               */
 
 /* ─── Custom GPIO Gamepad (active when physical board detected) ──── */
 #ifndef CONFIG_HDMI_OUTPUT
@@ -85,7 +87,11 @@ static int64_t      s_touch_last_us = 0;
 #define GPIO_PAD_AB        52      /* ADC2_CH3 */
 #define GPIO_PAD_L1        29
 #define GPIO_PAD_L2        30
+#ifdef CONFIG_BOARD_WAVESHARE_P4_43
+#define GPIO_PAD_X         (-1)    /* GPIO 33 is the board's BL_EN net and not on the header */
+#else
 #define GPIO_PAD_X         33
+#endif
 #define GPIO_PAD_Y         34
 #define GPIO_PAD_START     28
 #define GPIO_PAD_SELECT    32
@@ -106,6 +112,8 @@ bool odroid_input_touch_buttons_disable = false;
 #ifndef CONFIG_HDMI_OUTPUT
 static adc_oneshot_unit_handle_t s_paddle_adc_handle = NULL;
 static adc_oneshot_unit_handle_t s_battery_adc_handle = NULL;
+static adc_unit_t    s_battery_unit = ADC_UNIT_2;
+static adc_channel_t s_battery_chan = ADC_CHANNEL_4;
 #endif
 
 /* ─── USB Gamepad Button Mapping ─────────────────────────────────── */
@@ -158,6 +166,7 @@ static void gpio_pad_detect_and_init(void)
     const int dig_pins[] = { GPIO_PAD_L1, GPIO_PAD_L2, GPIO_PAD_X,
                              GPIO_PAD_Y, GPIO_PAD_START, GPIO_PAD_SELECT };
     for (int i = 0; i < sizeof(dig_pins)/sizeof(dig_pins[0]); i++) {
+        if (dig_pins[i] < 0) continue;     /* pin not available on this board */
         gpio_config_t cfg = {
             .pin_bit_mask  = 1ULL << dig_pins[i],
             .mode          = GPIO_MODE_INPUT,
@@ -232,7 +241,8 @@ static void gpio_pad_read(odroid_gamepad_state *state)
     if (gpio_get_level(GPIO_PAD_L1))     state->values[ODROID_INPUT_L] = 1;
     if (!s_gpio_pad_l2_stuck && gpio_get_level(GPIO_PAD_L2))
                                          state->values[ODROID_INPUT_R] = 1;
-    if (gpio_get_level(GPIO_PAD_X))      state->values[ODROID_INPUT_X] = 1;
+    if (GPIO_PAD_X >= 0 && gpio_get_level(GPIO_PAD_X))
+                                         state->values[ODROID_INPUT_X] = 1;
     if (gpio_get_level(GPIO_PAD_Y))      state->values[ODROID_INPUT_Y] = 1;
     if (gpio_get_level(GPIO_PAD_START))  state->values[ODROID_INPUT_START] = 1;
     if (gpio_get_level(GPIO_PAD_SELECT)) state->values[ODROID_INPUT_SELECT] = 1;
@@ -388,7 +398,7 @@ void odroid_paddle_adc_init(void)
     /* Reuse existing ADC2 handle if GPIO gamepad or battery already created it */
     if (s_gpio_pad_adc) {
         s_paddle_adc_handle = s_gpio_pad_adc;
-    } else if (s_battery_adc_handle) {
+    } else if (s_battery_adc_handle && s_battery_unit == PADDLE_ADC_UNIT) {
         s_paddle_adc_handle = s_battery_adc_handle;
     } else {
         adc_oneshot_unit_init_cfg_t unit_cfg = {
@@ -414,14 +424,22 @@ void odroid_input_battery_level_init(void)
 #else
     if (s_battery_adc_handle) return;  /* already initialised */
 
-    /* Reuse existing ADC2 handle if GPIO pad or paddle already created it */
-    if (s_gpio_pad_adc) {
+    esp_err_t io_err = adc_oneshot_io_to_channel(BATTERY_ADC_GPIO, &s_battery_unit, &s_battery_chan);
+    if (io_err != ESP_OK) {
+        ESP_LOGW(TAG, "Battery ADC: GPIO %d has no ADC channel (%s)",
+                 BATTERY_ADC_GPIO, esp_err_to_name(io_err));
+        return;
+    }
+
+    /* Reuse existing ADC2 handle if GPIO pad or paddle already created it
+       (only when the battery pin is on ADC2; otherwise get a unit of its own) */
+    if (s_battery_unit == ADC_UNIT_2 && s_gpio_pad_adc) {
         s_battery_adc_handle = s_gpio_pad_adc;
-    } else if (s_paddle_adc_handle) {
+    } else if (s_battery_unit == ADC_UNIT_2 && s_paddle_adc_handle) {
         s_battery_adc_handle = s_paddle_adc_handle;
     } else {
         adc_oneshot_unit_init_cfg_t unit_cfg = {
-            .unit_id = ADC_UNIT_2,
+            .unit_id = s_battery_unit,
         };
         esp_err_t err = adc_oneshot_new_unit(&unit_cfg, &s_battery_adc_handle);
         if (err != ESP_OK) {
@@ -435,9 +453,11 @@ void odroid_input_battery_level_init(void)
         .bitwidth = ADC_BITWIDTH_12,
     };
     ESP_ERROR_CHECK(adc_oneshot_config_channel(s_battery_adc_handle,
-                                               BATTERY_ADC_CHANNEL, &chan_cfg));
+                                               s_battery_chan, &chan_cfg));
 
-    ESP_LOGI(TAG, "Battery ADC initialised: ADC2_CH4 (GPIO 53), divider 68K/100K");
+    ESP_LOGI(TAG, "Battery ADC initialised: ADC%d_CH%d (GPIO %d), divider %d/%d",
+             (int)s_battery_unit + 1, (int)s_battery_chan, BATTERY_ADC_GPIO,
+             BATTERY_DIVIDER_NUM, BATTERY_DIVIDER_DEN);
 #endif
 }
 
@@ -463,7 +483,7 @@ void odroid_input_battery_level_read(odroid_battery_state *state)
     int ok_count = 0;
     for (int i = 0; i < 4; i++) {
         int raw = 0;
-        esp_err_t err = adc_oneshot_read(s_battery_adc_handle, BATTERY_ADC_CHANNEL, &raw);
+        esp_err_t err = adc_oneshot_read(s_battery_adc_handle, s_battery_chan, &raw);
         if (err == ESP_OK) {
             sum += raw;
             ok_count++;

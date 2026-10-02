@@ -48,7 +48,7 @@ static uint16_t *s_framebuffer = NULL;
 static bool s_fb_dirty = false;
 static bool s_backlight_init = false;
 
-/* ─── Backlight (LEDC on GPIO23) — LCD only ───────────────────── */
+/* ─── Backlight (LEDC on LCD_BK_LIGHT_GPIO) — LCD only ─────────── */
 #ifndef CONFIG_HDMI_OUTPUT
 #define BL_GPIO       LCD_BK_LIGHT_GPIO
 #define BL_LEDC_CH    LEDC_CHANNEL_0
@@ -75,6 +75,9 @@ static void backlight_init(void)
         .timer_sel  = BL_LEDC_TIMER,
         .duty       = BL_DUTY_MAX,  /* start at full brightness */
         .hpoint     = 0,
+        /* Active-low backlight (Waveshare): invert in hardware so duty stays
+         * "0 = off, max = full brightness" for all callers. */
+        .flags.output_invert = LCD_BK_LIGHT_ACTIVE_LOW,
     };
     ledc_channel_config(&ch_cfg);
     ledc_fade_func_install(0);

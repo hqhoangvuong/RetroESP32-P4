@@ -1,0 +1,12 @@
+# ESP32-P4 silicon Rev3.x profile — layer on top of sdkconfig.defaults
+#
+# The default build (Guition board) targets Rev<3.0 silicon only (image header
+# max chip revision v1.99), so it will NOT boot on a Rev3.x chip.  Current
+# Waveshare ESP32-P4-WIFI6-Touch-LCD-4.3 boards ship Rev3.x; use this overlay
+# for them.  Older Rev1.x Waveshare boards: build WITHOUT this overlay.
+# PSRAM stays at 200 MHz (as in sdkconfig.defaults); Waveshare's own examples
+# use 250 MHz on Rev3.x, which is an optional later tuning step.
+CONFIG_ESP32P4_REV_MIN_300=y
+# CONFIG_ESP32P4_REV_MIN_100 is not set
+# CONFIG_ESP32P4_REV_MIN_1 is not set
+# CONFIG_ESP32P4_SELECTS_REV_LESS_V3 is not set
